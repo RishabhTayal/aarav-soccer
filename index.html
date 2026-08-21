@@ -963,7 +963,7 @@
 
     ball.x += ball.vx * dt;
     ball.y += ball.vy * dt;
-    const damp = Math.exp(-1.5 * dt);
+    const damp = Math.exp(-1.2 * dt);
     ball.vx *= damp;
     ball.vy *= damp;
     const spdNow = Math.hypot(ball.vx, ball.vy);
@@ -975,26 +975,26 @@
     const gy1 = FIELD_H / 2 + GOAL_H / 2;
     const inMouth = ball.y > gy0 + 0.05 && ball.y < gy1 - 0.05;
 
-    // Bounce off top and bottom walls
-    if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy) * 0.85; }
-    if (ball.y > FIELD_H - ball.r) { ball.y = FIELD_H - ball.r; ball.vy = -Math.abs(ball.vy) * 0.85; }
+    // Bounce off top and bottom walls - hockey style (high restitution)
+    if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy) * 0.96; }
+    if (ball.y > FIELD_H - ball.r) { ball.y = FIELD_H - ball.r; ball.vy = -Math.abs(ball.vy) * 0.96; }
 
-    // left end — bounce off wall unless in goal mouth
+    // left end — bounce off wall unless in goal mouth (hockey boards style)
     if (ball.x < ball.r) {
       if (inMouth) {
         ball.y = clamp(ball.y, gy0 + ball.r, gy1 - ball.r);
       } else {
         ball.x = ball.r;
-        ball.vx = Math.abs(ball.vx) * 0.85;
+        ball.vx = Math.abs(ball.vx) * 0.96;
       }
     }
-    // right end — bounce off wall unless in goal mouth
+    // right end — bounce off wall unless in goal mouth (hockey boards style)
     if (ball.x > FIELD_W - ball.r) {
       if (inMouth) {
         ball.y = clamp(ball.y, gy0 + ball.r, gy1 - ball.r);
       } else {
         ball.x = FIELD_W - ball.r;
-        ball.vx = -Math.abs(ball.vx) * 0.85;
+        ball.vx = -Math.abs(ball.vx) * 0.96;
       }
     }
 
