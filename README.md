@@ -1,17 +1,35 @@
 # Aarav Soccer
 
-https://github.com/RishabhTayal/aarav-soccer
+Kid-friendly 3v3 swipe soccer. Flick to pass or shoot.
 
-A kid-friendly 3v3 swipe soccer game. One file — no install, no internet.
+Repo: https://github.com/RishabhTayal/aarav-soccer
 
-## How to open
+## Play locally
 
-1. Open `index.html` in any modern browser (Chrome, Safari, Edge, Firefox).
-2. On a phone or tablet, AirDrop / copy the file over and tap it, or send it to yourself.
-3. Optional: from this folder run `python3 -m http.server 8080` and visit `http://localhost:8080`.
+Open `index.html` in Chrome or Safari, or:
 
-Tap **Play**. First to 5 goals wins. Hit **Play again** for a rematch.
+```bash
+python3 -m http.server 8080
+```
 
-Works in portrait and landscape. Sound is optional — use the speaker button to mute.
+Then visit http://localhost:8080
 
-GitHub Pages may be added later so the game can be played at https://rishabhtayal.github.io/aarav-soccer/
+Tap **Play**. First to 5 wins. **Play again** for a rematch. Speaker button mutes sound.
+
+## Deploy on Vercel
+
+This is a static site (`index.html` at the repo root). No build step.
+
+1. Import https://github.com/RishabhTayal/aarav-soccer in Vercel
+2. Framework Preset: **Other**
+3. Build Command: leave empty
+4. Output Directory: `.` or leave default
+5. Deploy from `main`
+
+Or from a machine with the Vercel CLI:
+
+```bash
+npx vercel --prod --yes
+```
+
+`vercel.json` pins it as a static project with clean URLs.
