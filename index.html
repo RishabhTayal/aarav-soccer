@@ -6,3 +6,258 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Aarav Soccer</title>
+<style>
+  :root {
+    --blue: #2b6cff;
+    --blue-dark: #1546b8;
+    --orange: #ff7a1a;
+    --orange-dark: #c45300;
+    --grass: #2f9e4a;
+    --ink: #12301a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #1a5c2a;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #wrap {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+  }
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0;
+    z-index: 5;
+    pointer-events: none;
+    padding: max(8px, env(safe-area-inset-top)) 12px 0;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 8px;
+  }
+  #scoreboard {
+    pointer-events: none;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(10, 40, 18, 0.72);
+    color: #fff;
+    border-radius: 999px;
+    padding: 6px 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    backdrop-filter: blur(8px);
+    margin: 0 auto;
+    flex-shrink: 1;
+    white-space: nowrap;
+  }
+  @media (max-width: 420px) {
+    .team-pill { font-size: 12px; }
+    #score { font-size: 22px; min-width: 60px; }
+    #scoreboard { gap: 6px; padding: 6px 10px; }
+  }
+  .team-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-weight: 800; font-size: 14px; letter-spacing: 0.02em;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; }
+  .dot.blue { background: var(--blue); }
+  .dot.orange { background: var(--orange); }
+  #score {
+    font-size: 26px; font-weight: 900; letter-spacing: 0.04em;
+    min-width: 72px; text-align: center;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.35);
+  }
+  #score.pop { animation: scorepop 0.45s ease; }
+  @keyframes scorepop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.45); color: #ffe56a; }
+    100% { transform: scale(1); }
+  }
+  #muteBtn, #hint {
+    pointer-events: auto;
+  }
+  #muteBtn {
+    width: 44px; height: 44px; border: 0; border-radius: 50%;
+    background: rgba(10, 40, 18, 0.72); color: #fff;
+    font-size: 20px; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    backdrop-filter: blur(8px);
+  }
+  #canvas {
+    display: block; width: 100%; height: 100%;
+    touch-action: none;
+  }
+  #overlay {
+    position: absolute; inset: 0; z-index: 8;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(8, 28, 14, 0.55);
+    backdrop-filter: blur(4px);
+  }
+  #overlay.hidden { display: none; }
+  .card {
+    text-align: center; color: #fff;
+    background: linear-gradient(180deg, #2f8c44, #1f6a30);
+    border: 4px solid #fff;
+    border-radius: 28px;
+    padding: 28px 28px 24px;
+    width: min(420px, calc(100% - 32px));
+    box-shadow: 0 16px 40px rgba(0,0,0,0.35), inset 0 2px 0 rgba(255,255,255,0.25);
+  }
+  .card h1 {
+    font-size: clamp(28px, 7vw, 42px);
+    line-height: 1.05;
+    text-shadow: 0 3px 0 rgba(0,0,0,0.25);
+    margin-bottom: 6px;
+  }
+  .card p { font-size: 16px; opacity: 0.95; margin: 8px 0 18px; line-height: 1.35; }
+  .play {
+    appearance: none; border: 0; cursor: pointer;
+    background: #ffe56a; color: #1a3d12;
+    font-weight: 900; font-size: 22px;
+    padding: 14px 36px; border-radius: 999px;
+    box-shadow: 0 6px 0 #c9a61a, 0 10px 18px rgba(0,0,0,0.25);
+    transform: translateY(0);
+  }
+  .play:active { transform: translateY(4px); box-shadow: 0 2px 0 #c9a61a, 0 4px 10px rgba(0,0,0,0.2); }
+  #toast {
+    position: absolute; left: 50%; top: 20%;
+    transform: translateX(-50%);
+    z-index: 6;
+    color: #ffe56a; font-weight: 900; font-size: clamp(26px, 7vw, 44px);
+    text-shadow: 0 3px 0 #1a3d12, 0 6px 18px rgba(0,0,0,0.45);
+    pointer-events: none; opacity: 0;
+    letter-spacing: 0.03em;
+  }
+  #toast.show { animation: toastin 1.8s ease forwards; }
+  @keyframes toastin {
+    0% { opacity: 0; transform: translate(-50%, 12px) scale(0.85); }
+    15% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
+    70% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -8px) scale(1); }
+  }
+  #hint {
+    position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    z-index: 6;
+    background: rgba(10,40,18,0.8);
+    color: #fff; font-weight: 800; font-size: 15px;
+    padding: 10px 16px; border-radius: 999px;
+    pointer-events: none;
+    opacity: 0; transition: opacity 0.4s;
+    white-space: nowrap;
+  }
+  #hint.show { opacity: 1; }
+  #flash {
+    position: absolute; inset: 0; z-index: 4;
+    pointer-events: none; opacity: 0;
+    background: radial-gradient(circle at center, rgba(255,229,106,0.65), rgba(255,255,255,0.15) 50%, transparent 70%);
+  }
+  #flash.go { animation: flash 0.7s ease; }
+  @keyframes flash {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="canvas"></canvas>
+  <div id="flash"></div>
+  <div id="hud">
+    <div style="width:44px"></div>
+    <div id="scoreboard">
+      <div class="team-pill"><span class="dot blue"></span>AARAV</div>
+      <div id="score">0 – 0</div>
+      <div class="team-pill">CPU<span class="dot orange"></span></div>
+    </div>
+    <button id="muteBtn" aria-label="Mute">🔊</button>
+  </div>
+  <div id="toast"></div>
+  <div id="hint">Flick to pass or shoot</div>
+  <div id="overlay">
+    <div class="card" id="card">
+      <h1>⚽ Aarav Soccer</h1>
+      <p>Flick the ball to pass or shoot.<br>Blue vs Orange · first to 5 wins!</p>
+      <button class="play" id="playBtn">Play</button>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const overlay = document.getElementById("overlay");
+  const card = document.getElementById("card");
+  const playBtn = document.getElementById("playBtn");
+  const scoreEl = document.getElementById("score");
+  const muteBtn = document.getElementById("muteBtn");
+  const toastEl = document.getElementById("toast");
+  const hintEl = document.getElementById("hint");
+  const flashEl = document.getElementById("flash");
+
+  const FIELD_W = 110;
+  const FIELD_H = 68;
+  const GOAL_W = 3.2;
+  const GOAL_H = 16;
+  const BALL_R = 0.85;
+  const PLAYER_R = 1.55;
+  const WIN_SCORE = 5;
+
+  const BLUE = 0;
+  const ORANGE = 1;
+
+  let dpr = 1;
+  let view = { x: 0, y: 0, s: 1, pad: 10 };
+  let lastT = 0;
+  let shake = 0;
+  let hintUntil = 0;
+  let toastTimer = 0;
+
+  const state = {
+    mode: "menu", // menu | playing | celebrate | kickoff | over
+    score: [0, 0],
+    kickoffTeam: BLUE,
+    celebrateT: 0,
+    kickoffT: 0,
+    lastTouch: BLUE,
+    possession: null,
+    trapLock: 0,
+  };
+
+  const ball = {
+    x: FIELD_W / 2, y: FIELD_H / 2,
+    vx: 0, vy: 0,
+    r: BALL_R,
+    owner: null,
+    lastOwner: null,
+  };
+
+  const players = [];
+  const particles = [];
+  const trails = [];
+
+  function makePlayer(id, team, num, name, role, x, y) {
+    return {
+      id, team, num, name, role,
+      x, y, vx: 0, vy: 0,
+      homeX: x, homeY: y,
+      r: role === "gk" ? PLAYER_R * 1.08 : PLAYER_R,
+      face: 1,
+      kickCool: 0,
+      stunned: 0,
+    };
+  }
+
+  function formation() {
+    players.length = 0;
+    // Blue attacks right. Keeper left.
+    players.push(makePlayer("b1", BLUE, 1, "Dev", "gk", 8, FIELD_H / 2));
+    players.push(makePlayer("b7", BLUE, 7, "Leo", "mid", 38, FIELD_H * 0.32));
+    players.push(makePlayer("b10", BLUE, 10, "Aarav", "fwd", 48, FIELD_H * 0.58));
+    // Orange attacks left. Keeper right.
+    players.push(makePlayer("o1", ORANGE, 1, "Max", "gk", FIELD_W - 8, FIELD_H / 2));
+    players.push(makePlayer("o8", ORANGE, 8, "Rio", "mid", FIELD_W - 38, FIELD_H * 0.68));
+    players.push(makePlayer("o9", ORANGE, 9, "Kai", "fwd", FIELD_W - 48, FIELD_H * 0.42));
+  }
+SEE_NEXT_PART
