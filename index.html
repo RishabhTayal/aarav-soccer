@@ -251,14 +251,18 @@
 
   function formation() {
     players.length = 0;
-    // Blue attacks right. Keeper left.
+    // Blue attacks right. Keeper left. 1-2-1-1 formation
     players.push(makePlayer("b1", BLUE, 1, "Dev", "gk", 8, FIELD_H / 2));
-    players.push(makePlayer("b7", BLUE, 7, "Leo", "mid", 38, FIELD_H * 0.32));
-    players.push(makePlayer("b10", BLUE, 10, "Aarav", "fwd", 48, FIELD_H * 0.58));
-    // Orange attacks left. Keeper right.
-    players.push(makePlayer("o1", ORANGE, 1, "Max", "gk", FIELD_W - 8, FIELD_H / 2));
-    players.push(makePlayer("o8", ORANGE, 8, "Rio", "mid", FIELD_W - 38, FIELD_H * 0.68));
-    players.push(makePlayer("o9", ORANGE, 9, "Kai", "fwd", FIELD_W - 48, FIELD_H * 0.42));
+    players.push(makePlayer("b2", BLUE, 2, "Max", "def", 22, FIELD_H * 0.28));
+    players.push(makePlayer("b5", BLUE, 5, "Leo", "def", 22, FIELD_H * 0.72));
+    players.push(makePlayer("b8", BLUE, 8, "Finn", "mid", 42, FIELD_H / 2));
+    players.push(makePlayer("b10", BLUE, 10, "Aarav", "fwd", 58, FIELD_H / 2));
+    // Orange attacks left. Keeper right. 1-2-1-1 formation
+    players.push(makePlayer("o1", ORANGE, 1, "Kai", "gk", FIELD_W - 8, FIELD_H / 2));
+    players.push(makePlayer("o2", ORANGE, 2, "Rio", "def", FIELD_W - 22, FIELD_H * 0.72));
+    players.push(makePlayer("o5", ORANGE, 5, "Zak", "def", FIELD_W - 22, FIELD_H * 0.28));
+    players.push(makePlayer("o8", ORANGE, 8, "Sam", "mid", FIELD_W - 42, FIELD_H / 2));
+    players.push(makePlayer("o9", ORANGE, 9, "Jay", "fwd", FIELD_W - 58, FIELD_H / 2));
   }
 
   // ---------- Audio ----------
@@ -414,11 +418,21 @@
         p.x = p.team === BLUE ? 8 : FIELD_W - 8;
         p.y = FIELD_H / 2;
       } else if (p.team === state.kickoffTeam) {
-        if (p.role === "fwd") { p.x = FIELD_W / 2 - 6 * dir; p.y = FIELD_H / 2 + 3; }
-        else { p.x = FIELD_W / 2 - 14 * dir; p.y = FIELD_H / 2 - 8; }
+        if (p.role === "fwd") { p.x = FIELD_W / 2 - 6 * dir; p.y = FIELD_H / 2; }
+        else if (p.role === "mid") { p.x = FIELD_W / 2 - 12 * dir; p.y = FIELD_H / 2 + 8; }
+        else if (p.role === "def") {
+          const defIndex = players.filter(pl => pl.team === p.team && pl.role === "def").indexOf(p);
+          p.x = FIELD_W / 2 - 22 * dir;
+          p.y = defIndex === 0 ? FIELD_H * 0.32 : FIELD_H * 0.68;
+        }
       } else {
-        if (p.role === "fwd") { p.x = FIELD_W / 2 + 16 * dir; p.y = FIELD_H * 0.38; }
-        else { p.x = FIELD_W / 2 + 22 * dir; p.y = FIELD_H * 0.62; }
+        if (p.role === "fwd") { p.x = FIELD_W / 2 + 18 * dir; p.y = FIELD_H / 2; }
+        else if (p.role === "mid") { p.x = FIELD_W / 2 + 24 * dir; p.y = FIELD_H * 0.45; }
+        else if (p.role === "def") {
+          const defIndex = players.filter(pl => pl.team === p.team && pl.role === "def").indexOf(p);
+          p.x = FIELD_W / 2 + 30 * dir;
+          p.y = defIndex === 0 ? FIELD_H * 0.35 : FIELD_H * 0.65;
+        }
       }
       p.homeX = p.x; p.homeY = p.y;
     });
@@ -652,11 +666,11 @@
       py = lerp(diry, ly / ld, 0.62);
       const n = Math.hypot(px, py) || 1;
       px /= n; py /= n;
-      spd = clamp(18 + td * 0.55, 16, 34) * (0.75 + power * 0.4);
+      spd = clamp(22 + td * 0.75, 24, 52) * (0.8 + power * 0.4);
       audio.pass();
     } else {
-      spd = (isShot ? 36 : 28) * (0.55 + power * 0.7) * speedBoost;
-      spd = clamp(spd, 14, 48);
+      spd = (isShot ? 48 : 38) * (0.6 + power * 0.7) * speedBoost;
+      spd = clamp(spd, 22, 68);
       audio.kick();
     }
 
@@ -682,7 +696,7 @@
     }
     releaseBall();
     state.trapLock = 0.4;
-    const spd = 16 * (0.5 + power) * speedBoost;
+    const spd = 24 * (0.6 + power) * speedBoost;
     ball.vx = dirx * spd + (Math.random() - 0.5) * 3;
     ball.vy = diry * spd + (Math.random() - 0.5) * 3;
     ball.lastOwner = p;
@@ -736,13 +750,16 @@
     if (myTeamHas) {
       // support: get open ahead and wide
       const holderP = has;
-      const ahead = p.team === BLUE ? 14 : -14;
-      const wide = (p.role === "fwd" ? 1 : -1) * (p.team === BLUE ? 12 : -12);
+      const ahead = p.team === BLUE ? (p.role === "def" ? 8 : p.role === "mid" ? 12 : 16) : (p.role === "def" ? -8 : p.role === "mid" ? -12 : -16);
+      const wide = (p.role === "fwd" ? 0 : p.role === "mid" ? 10 : (p.num % 2 === 0 ? -14 : 14));
       let tx = clamp(holderP.x + ahead, 10, FIELD_W - 10);
       let ty = clamp(holderP.y + wide + Math.sin(performance.now() / 400 + p.num) * 3, 8, FIELD_H - 8);
-      // stay offside-ish reasonable
-      if (p.team === BLUE) tx = Math.min(tx, FIELD_W - 12);
-      else tx = Math.max(tx, 12);
+      // stay offside-ish reasonable, defenders stay back more
+      if (p.team === BLUE) {
+        tx = Math.min(tx, p.role === "def" ? FIELD_W * 0.6 : FIELD_W - 12);
+      } else {
+        tx = Math.max(tx, p.role === "def" ? FIELD_W * 0.4 : 12);
+      }
       return { x: tx, y: ty, sprint: 0.8 };
     }
 
@@ -933,11 +950,11 @@
 
     ball.x += ball.vx * dt;
     ball.y += ball.vy * dt;
-    const damp = Math.exp(-2.4 * dt);
+    const damp = Math.exp(-1.5 * dt);
     ball.vx *= damp;
     ball.vy *= damp;
     const spdNow = Math.hypot(ball.vx, ball.vy);
-    if (spdNow > 52) { ball.vx *= 52 / spdNow; ball.vy *= 52 / spdNow; }
+    if (spdNow > 72) { ball.vx *= 72 / spdNow; ball.vy *= 72 / spdNow; }
     if (spdNow < 0.35) { ball.vx = 0; ball.vy = 0; }
 
     // sidelines / endlines, but allow goal mouths
