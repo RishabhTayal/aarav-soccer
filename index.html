@@ -748,31 +748,51 @@
     }
 
     if (myTeamHas) {
-      // support: get open ahead and wide
+      // support: get open ahead and wide, but stay closer to home position
       const holderP = has;
-      const ahead = p.team === BLUE ? (p.role === "def" ? 8 : p.role === "mid" ? 12 : 16) : (p.role === "def" ? -8 : p.role === "mid" ? -12 : -16);
-      const wide = (p.role === "fwd" ? 0 : p.role === "mid" ? 10 : (p.num % 2 === 0 ? -14 : 14));
+      const ahead = p.team === BLUE ? (p.role === "def" ? 6 : p.role === "mid" ? 10 : 14) : (p.role === "def" ? -6 : p.role === "mid" ? -10 : -14);
+      const wide = (p.role === "fwd" ? 0 : p.role === "mid" ? 8 : (p.num % 2 === 0 ? -12 : 12));
       let tx = clamp(holderP.x + ahead, 10, FIELD_W - 10);
       let ty = clamp(holderP.y + wide + Math.sin(performance.now() / 400 + p.num) * 3, 8, FIELD_H - 8);
       // stay offside-ish reasonable, defenders stay back more
       if (p.team === BLUE) {
-        tx = Math.min(tx, p.role === "def" ? FIELD_W * 0.6 : FIELD_W - 12);
+        tx = Math.min(tx, p.role === "def" ? FIELD_W * 0.55 : p.role === "mid" ? FIELD_W * 0.75 : FIELD_W - 12);
       } else {
-        tx = Math.max(tx, p.role === "def" ? FIELD_W * 0.4 : 12);
+        tx = Math.max(tx, p.role === "def" ? FIELD_W * 0.45 : p.role === "mid" ? FIELD_W * 0.25 : 12);
       }
-      return { x: tx, y: ty, sprint: 0.8 };
+      // Blend with home position to maintain shape
+      const homeBlend = p.role === "def" ? 0.5 : p.role === "mid" ? 0.3 : 0.15;
+      tx = lerp(tx, p.homeX, homeBlend);
+      ty = lerp(ty, p.homeY, homeBlend);
+      return { x: tx, y: ty, sprint: 0.75 };
     }
 
-    // defending / chase loose ball
+    // defending / chase loose ball - only closest player plus one support
     const mates = teamPlayers(p.team).filter(m => m.role !== "gk");
-    const closest = mates.slice().sort((a, b) => dist(a, ball) - dist(b, ball))[0];
-    if (p === closest || (loose && dist(p, ball) < 16)) {
+    const sorted = mates.slice().sort((a, b) => dist(a, ball) - dist(b, ball));
+    const closest = sorted[0];
+    const secondClosest = sorted[1];
+    
+    // Only closest player chases aggressively, second closest provides support
+    if (p === closest && loose) {
       return { x: ball.x, y: ball.y, sprint: 1.05 };
     }
-    // mark: stay between ball and own goal
+    if (p === secondClosest && loose && dist(p, ball) < 18) {
+      const supportX = lerp(ball.x, p.homeX, 0.4);
+      const supportY = lerp(ball.y, p.homeY, 0.4);
+      return { x: supportX, y: supportY, sprint: 0.95 };
+    }
+    
+    // Others hold position more firmly - stay closer to home
+    const homeWeight = p.role === "def" ? 0.65 : p.role === "mid" ? 0.55 : 0.45;
     const mx = lerp(ball.x, gDefend.x, 0.35);
     const my = lerp(ball.y, gDefend.y, 0.2);
-    return { x: clamp(mx, 8, FIELD_W - 8), y: clamp(my, 8, FIELD_H - 8), sprint: 0.85 };
+    const defPos = { x: clamp(mx, 8, FIELD_W - 8), y: clamp(my, 8, FIELD_H - 8) };
+    return { 
+      x: lerp(defPos.x, p.homeX, homeWeight), 
+      y: lerp(defPos.y, p.homeY, homeWeight), 
+      sprint: 0.75 
+    };
   }
 
   function aiKickIfNeeded(p, dt) {
@@ -920,16 +940,9 @@
       const d = Math.hypot(dx, dy) || 0.001;
       const min = ball.r + p.r;
       if (d < min) {
-        const nx = dx / d, ny = dy / d;
-        ball.x = p.x + nx * min;
-        ball.y = p.y + ny * min;
-        const rel = (ball.vx - p.vx) * nx + (ball.vy - p.vy) * ny;
-        if (rel < 0) {
-          ball.vx -= 1.55 * rel * nx;
-          ball.vy -= 1.55 * rel * ny;
-        }
-        // slow ball a bit on body
-        ball.vx *= 0.92; ball.vy *= 0.92;
+        // Ball does NOT bounce off players - just slow it down slightly on contact
+        ball.vx *= 0.88;
+        ball.vy *= 0.88;
         if (p.team !== (ball.lastOwner && ball.lastOwner.team) && Math.hypot(ball.vx, ball.vy) < 14) {
           // chance to control
           if (Math.random() < 0.45 && state.trapLock <= 0) {
@@ -962,25 +975,26 @@
     const gy1 = FIELD_H / 2 + GOAL_H / 2;
     const inMouth = ball.y > gy0 + 0.05 && ball.y < gy1 - 0.05;
 
-    if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy) * 0.72; }
-    if (ball.y > FIELD_H - ball.r) { ball.y = FIELD_H - ball.r; ball.vy = -Math.abs(ball.vy) * 0.72; }
+    // Bounce off top and bottom walls
+    if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy) * 0.85; }
+    if (ball.y > FIELD_H - ball.r) { ball.y = FIELD_H - ball.r; ball.vy = -Math.abs(ball.vy) * 0.85; }
 
-    // left end — open if in goal mouth
+    // left end — bounce off wall unless in goal mouth
     if (ball.x < ball.r) {
       if (inMouth) {
         ball.y = clamp(ball.y, gy0 + ball.r, gy1 - ball.r);
       } else {
         ball.x = ball.r;
-        ball.vx = Math.abs(ball.vx) * 0.7;
+        ball.vx = Math.abs(ball.vx) * 0.85;
       }
     }
-    // right end
+    // right end — bounce off wall unless in goal mouth
     if (ball.x > FIELD_W - ball.r) {
       if (inMouth) {
         ball.y = clamp(ball.y, gy0 + ball.r, gy1 - ball.r);
       } else {
         ball.x = FIELD_W - ball.r;
-        ball.vx = -Math.abs(ball.vx) * 0.7;
+        ball.vx = -Math.abs(ball.vx) * 0.85;
       }
     }
 
